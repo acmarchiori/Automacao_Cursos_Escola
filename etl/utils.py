@@ -1,6 +1,6 @@
 from sqlalchemy.sql import text
 
-# Defina as variáveis de tipo de curso e tipo de aula no início
+# Defina as variáveis de tipo de curso, tipo de aula, AREA_BNCC e cor no início
 TIPO_CURSO = "ESCOLAR"
 TIPO_AULA = "CONTEÚDO EM TEXTO E IMAGENS"
 AREA_BNCC = "LP"
@@ -11,7 +11,8 @@ def processar_cursos(df):
     cursos = df[[
         "ANO_ESCOLAR", "SEGMENTO_ESCOLAR", "TITULO",
         "ORDEM_MODULO", "NOME_MODULO", "ORDEM_CAPITULO",
-        "NOME_CAPITULO", "ORDEM_AULA", "TITULO_AULA"
+        "NOME_CAPITULO", "ORDEM_AULA", "TITULO_AULA",
+        "PALAVRAS_CHAVES", "CODIGOS_BNCC"
     ]].drop_duplicates()
 
     cursos["COR"] = COR
@@ -25,45 +26,57 @@ def inserir_cursos(engine, cursos_df):
     modulos_inseridos = {}
     capitulos_inseridos = {}
     with engine.begin() as conn:
-        for _, row in cursos_df.iterrows():
+        for idx, row in cursos_df.iterrows():
             # Buscar IDs necessários
             segmento_id = conn.execute(
-                text("SELECT ID FROM T_SEGMENTOS_ESCOLARES WITH(NOLOCK) WHERE NOME=:nome"),
+                text(
+                    "SELECT ID FROM T_SEGMENTOS_ESCOLARES WITH(NOLOCK) "
+                    "WHERE NOME=:nome"
+                ),
                 {"nome": row["SEGMENTO_ESCOLAR"]}
             ).scalar()
 
             ano_id = conn.execute(
                 text(
-                    "SELECT ID FROM T_ANOS_ESCOLARES WITH(NOLOCK) WHERE NOME=:nome AND "
+                    "SELECT ID FROM T_ANOS_ESCOLARES WITH(NOLOCK) "
+                    "WHERE NOME=:nome AND "
                     "FK_SEGMENTO_ESCOLAR=:fk_segmento"
                 ),
                 {"nome": row["ANO_ESCOLAR"], "fk_segmento": segmento_id}
             ).scalar()
 
             area_bncc_id = conn.execute(
-                text("SELECT ID FROM T_AREAS_BNCC WITH(NOLOCK) WHERE CODIGO=:codigo"),
+                text(
+                    "SELECT ID FROM T_AREAS_BNCC WITH(NOLOCK) "
+                    "WHERE CODIGO=:codigo"
+                ),
                 {"codigo": "LP"}
             ).scalar()
 
             if not segmento_id or not ano_id or not area_bncc_id:
-                print(f"Erro: Segmento, Ano escolar ou Área BNCC não encontrado para o curso {row['TITULO']}")
+                print(f"Erro: Segmento, Ano escolar ou Área BNCC "
+                      f"não encontrado para o curso {row['TITULO']}")
                 continue
 
             curso_id = conn.execute(
-                text("SELECT ID FROM T_CURSOS WITH(NOLOCK) WHERE TITULO=:titulo"),
+                text(
+                    "SELECT ID FROM T_CURSOS WITH(NOLOCK) WHERE TITULO=:titulo"
+                ),
                 {"titulo": row["TITULO"]}
             ).scalar()
 
             if not curso_id:
                 result = conn.execute(
                     text(
-                        "EXEC sp_inserir_curso @titulo=:titulo, @tipo_curso=:tipo_curso,"
-                        " @cor=:cor, @segmento_escolar=:segmento_escolar, @ano_escolar=:ano_escolar,"
+                        "EXEC sp_inserir_curso @titulo=:titulo,"
+                        " @tipo_curso=:tipo_curso,"
+                        " @cor=:cor, @segmento_escolar=:segmento_escolar,"
+                        " @ano_escolar=:ano_escolar,"
                         " @area_bncc=:area_bncc, @novo_id=:novo_id OUTPUT"
                     ),
                     {
                         "titulo": row["TITULO"],
-                        "tipo_curso": TIPO_CURSO,  # Usando a variável definida
+                        "tipo_curso": TIPO_CURSO,
                         "cor": row["COR"],
                         "segmento_escolar": segmento_id,
                         "ano_escolar": ano_id,
@@ -80,7 +93,8 @@ def inserir_cursos(engine, cursos_df):
             modulo_chave = (row["NOME_MODULO"], row["ORDEM_MODULO"])
             modulo_id = modulos_inseridos.get(modulo_chave) or conn.execute(
                 text(
-                    "SELECT ID FROM T_MODULOS WITH(NOLOCK) WHERE NOME=:nome AND FK_CURSO=:fk_curso"
+                    "SELECT ID FROM T_MODULOS WITH(NOLOCK) "
+                    "WHERE NOME=:nome AND FK_CURSO=:fk_curso"
                 ),
                 {"nome": row["NOME_MODULO"], "fk_curso": curso_id}
             ).scalar()
@@ -88,7 +102,8 @@ def inserir_cursos(engine, cursos_df):
             if not modulo_id:
                 modulo_result = conn.execute(
                     text(
-                        "EXEC sp_inserir_modulo @nome=:nome, @ordem=:ordem, @fk_curso=:fk_curso, @novo_id=:novo_id OUTPUT"
+                        "EXEC sp_inserir_modulo @nome=:nome, @ordem=:ordem,"
+                        " @fk_curso=:fk_curso, @novo_id=:novo_id OUTPUT"
                     ),
                     {
                         "nome": row["NOME_MODULO"],
@@ -98,25 +113,34 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 modulo_id = modulo_result.scalar()
-                print(f"Módulo '{row['NOME_MODULO']}' inserido com ID {modulo_id}")
+                print(f"Módulo '{row['NOME_MODULO']}' "
+                      f"inserido com ID {modulo_id}")
             else:
-                print(f"Módulo '{row['NOME_MODULO']}' já existe com ID {modulo_id}")
+                print(f"Módulo '{row['NOME_MODULO']}' "
+                      f"já existe com ID {modulo_id}")
 
             modulos_inseridos[modulo_chave] = modulo_id
 
             # Processar capítulos
-            capitulo_chave = (modulo_id, row["NOME_CAPITULO"], row["ORDEM_CAPITULO"])
-            capitulo_id = capitulos_inseridos.get(capitulo_chave) or conn.execute(
-                text(
-                    "SELECT ID FROM T_CAPITULOS WITH(NOLOCK) WHERE NOME=:nome AND FK_MODULO=:fk_modulo"
-                ),
-                {"nome": row["NOME_CAPITULO"], "fk_modulo": modulo_id}
-            ).scalar()
+            capitulo_chave = (
+                modulo_id,
+                row["NOME_CAPITULO"],
+                row["ORDEM_CAPITULO"]
+            )
+            capitulo_id = capitulos_inseridos.get(capitulo_chave) or \
+                conn.execute(
+                    text(
+                        "SELECT ID FROM T_CAPITULOS WITH(NOLOCK) "
+                        "WHERE NOME=:nome AND FK_MODULO=:fk_modulo"
+                    ),
+                    {"nome": row["NOME_CAPITULO"], "fk_modulo": modulo_id}
+                ).scalar()
 
             if not capitulo_id:
                 capitulo_result = conn.execute(
                     text(
-                        "EXEC sp_inserir_capitulo @nome=:nome, @ordem=:ordem, @fk_modulo=:fk_modulo, @novo_id=:novo_id OUTPUT"
+                        "EXEC sp_inserir_capitulo @nome=:nome, @ordem=:ordem,"
+                        " @fk_modulo=:fk_modulo, @novo_id=:novo_id OUTPUT"
                     ),
                     {
                         "nome": row["NOME_CAPITULO"],
@@ -126,15 +150,19 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 capitulo_id = capitulo_result.scalar()
-                print(f"Capítulo '{row['NOME_CAPITULO']}' inserido com ID {capitulo_id}")
+                print(f"Capítulo '{row['NOME_CAPITULO']}' "
+                      f"inserido com ID {capitulo_id}")
             else:
-                print(f"Capítulo '{row['NOME_CAPITULO']}' já existe com ID {capitulo_id}")
+                print(f"Capítulo '{row['NOME_CAPITULO']}' "
+                      f"já existe com ID {capitulo_id}")
 
             capitulos_inseridos[capitulo_chave] = capitulo_id
 
             # Obter o ID de T_TIPO_AULA para 'CONTEÚDO EM TEXTO E IMAGEM'
             tipo_aula_id = conn.execute(
-                text("SELECT ID FROM T_TIPO_AULA WITH(NOLOCK) WHERE NOME=:nome"),
+                text(
+                    "SELECT ID FROM T_TIPO_AULA WITH(NOLOCK) WHERE NOME=:nome"
+                ),
                 {"nome": TIPO_AULA}
             ).scalar()
 
@@ -144,29 +172,65 @@ def inserir_cursos(engine, cursos_df):
 
             # Processar aulas
             aula_id = conn.execute(
-                text(
-                    "SELECT ID FROM T_AULAS WITH(NOLOCK) WHERE TITULO=:titulo AND FK_CAPITULO=:fk_capitulo"
-                ),
-                {"titulo": row["TITULO_AULA"], "fk_capitulo": capitulo_id}
+              text(
+                "SELECT ID FROM T_AULAS WITH(NOLOCK) "
+                "WHERE TITULO=:titulo AND "
+                "FK_CAPITULO=:fk_capitulo"
+              ),
+              {
+                "titulo": row["TITULO_AULA"],
+                "fk_capitulo": capitulo_id
+              }
             ).scalar()
 
             if not aula_id:
                 aula_result = conn.execute(
                     text(
-                        "EXEC sp_inserir_aula @titulo=:titulo, @ordem=:ordem, @fk_capitulo=:fk_capitulo,"
-                        " @fk_curso=:fk_curso, @fk_modulo=:fk_modulo, @fk_tipo_aula=:fk_tipo_aula, @novo_id=:novo_id OUTPUT"
+                        "EXEC sp_inserir_aula @titulo=:titulo, @ordem=:ordem,"
+                        " @fk_capitulo=:fk_capitulo,"
+                        " @fk_curso=:fk_curso, @fk_modulo=:fk_modulo,"
+                        " @fk_tipo_aula=:fk_tipo_aula,"
+                        " @palavras_chaves=:palavras_chaves,"
+                        " @novo_id=:novo_id OUTPUT"
                     ),
                     {
                         "titulo": row["TITULO_AULA"],
                         "ordem": row["ORDEM_AULA"],
+                        "palavras_chaves": row["PALAVRAS_CHAVES"],
                         "fk_capitulo": capitulo_id,
-                        "fk_curso": curso_id,  # Passando o fk_curso aqui
-                        "fk_modulo": modulo_id,  # Passando o fk_modulo
-                        "fk_tipo_aula": tipo_aula_id,  # Usando o ID de T_TIPO_AULA
+                        "fk_curso": curso_id,
+                        "fk_modulo": modulo_id,
+                        "fk_tipo_aula": tipo_aula_id,
                         "novo_id": 0,
                     },
                 )
                 aula_id = aula_result.scalar()
                 print(f"Aula '{row['TITULO_AULA']}' inserida com ID {aula_id}")
             else:
-                print(f"Aula '{row['TITULO_AULA']}' já existe com ID {aula_id}")
+                print(f"Aula '{row['TITULO_AULA']}' "
+                      f"já existe com ID {aula_id}")
+
+            # Inserir habilidades BNCC para cada código na coluna CODIGOS_BNCC
+            codigos_bncc = row["CODIGOS_BNCC"].split(';') \
+                if row["CODIGOS_BNCC"] else []
+            bncc_habilidades = ";".join(
+                [codigo.strip() for codigo in codigos_bncc]
+            )
+
+            # Inserir na T_BNCC_AULA com o índice da linha
+            try:
+                conn.execute(
+                    text(
+                        "EXEC sp_inserir_bncc_aula :fk_aula, "
+                        ":bncc_habilidades, :linha"
+                    ),
+                    {
+                        "fk_aula": aula_id,
+                        "bncc_habilidades": bncc_habilidades,
+                        "linha": idx + 1
+                    }
+                )
+                print(f"Códigos BNCC inseridos para a aula ID "
+                      f"{aula_id} na linha {idx + 1}")
+            except Exception as e:
+                print(f"Erro ao inserir códigos BNCC na linha {idx + 1}: {e}")

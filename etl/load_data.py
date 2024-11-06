@@ -10,13 +10,21 @@ def criar_engine():
     username = "usr_mosaico"
     password = "fNntAxwEMTTrjV4K"
     driver = "ODBC Driver 17 for SQL Server"
-    connection_string = f"mssql+pyodbc://{username}:{password}@{server}:1433/{database}?driver={driver}&Encrypt=yes&TrustServerCertificate=yes&Connection Timeout=30"
+    connection_string = (
+        f"mssql+pyodbc://{username}:{password}@{server}:1433/{database}?"
+        f"driver={driver}&Encrypt=yes&TrustServerCertificate=yes&Connection "
+        f"Timeout=30"
+    )
     return create_engine(connection_string)
 
 
 def carregar_dados():
     # Carregar a planilha
-    file_path = "/home/acmarchiori/Área de Trabalho/2024_BANCO DE MATERIAIS_LITERATURA.xlsm"
+    file_path = (
+        "/home/acmarchiori/Área de Trabalho/"
+        "2024_BANCO DE MATERIAIS_LITERATURA.xlsm"
+    )
+
     # Atualize com o nome correto da aba
     df = pd.read_excel(file_path, sheet_name="Plan1")
 
@@ -35,8 +43,16 @@ def carregar_dados():
             "ORDEM CAPITULO": "ORDEM_CAPITULO",
             "CONTEÚDO": "TITULO_AULA",
             "ORDEM AULA": "ORDEM_AULA",
+            "BNCC": "CODIGOS_BNCC",
+            "PALAVRAS CHAVES": "PALAVRAS_CHAVES",
         },
         inplace=True,
+    )
+
+    # Garantir que valores nulos ou vazios em "PALAVRAS_CHAVES" sejam
+    # convertidos para None
+    df['PALAVRAS_CHAVES'] = df['PALAVRAS_CHAVES'].apply(
+        lambda x: None if pd.isna(x) or x == '' else x
     )
 
     # Processar os dados
