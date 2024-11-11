@@ -22,7 +22,7 @@ def carregar_dados():
     # Carregar a planilha
     file_path = (
         "/home/acmarchiori/Área de Trabalho/"
-        "2024_BANCO DE MATERIAIS_LITERATURA.xlsm"
+        "2024_BANCO DE MATERIAIS_LITERATURA_1.xlsm"
     )
 
     # Atualize com o nome correto da aba
@@ -37,14 +37,18 @@ def carregar_dados():
             "ANO": "ANO_ESCOLAR",
             "SEGMENTO": "SEGMENTO_ESCOLAR",
             "ÁREA": "TITULO",
-            "FRENTE": "NOME_MODULO",
+            "MÓDULO": "NOME_MODULO",
             "ORDEM MÓDULO": "ORDEM_MODULO",
-            "TEMA": "NOME_CAPITULO",
-            "ORDEM CAPITULO": "ORDEM_CAPITULO",
-            "CONTEÚDO": "TITULO_AULA",
+            "CAPÍTULO": "NOME_CAPITULO",
+            "ORDEM CAPÍTULO": "ORDEM_CAPITULO",
+            "AULA": "TITULO_AULA",
             "ORDEM AULA": "ORDEM_AULA",
             "BNCC": "CODIGOS_BNCC",
             "PALAVRAS CHAVES": "PALAVRAS_CHAVES",
+            "NÍVEL": "NIVEL",
+            "LINK/CONTEÚDO": "LINK_CONTEUDO",
+            "ESTRATÉGIA DE APRENDIZAGEM": "ESTRATEGIA_APRENDIZAGEM",
+            "TIPO DE AULA": "TIPO_AULA",
         },
         inplace=True,
     )

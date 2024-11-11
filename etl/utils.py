@@ -1,10 +1,34 @@
+import os
 from sqlalchemy.sql import text
+import unicodedata
 
 # Defina as variáveis de tipo de curso, tipo de aula, AREA_BNCC e cor no início
 TIPO_CURSO = "ESCOLAR"
-TIPO_AULA = "CONTEÚDO EM TEXTO E IMAGENS"
 AREA_BNCC = "LP"
 COR = "#EB7D36"
+HTML_PATH = "/home/acmarchiori/Área de Trabalho/HTLM_LITERATURA"
+
+
+def normalizar_texto(texto):
+    """Função para remover acentos e normalizar o texto."""
+    return unicodedata.normalize('NFKD', texto) \
+        .encode('ASCII', 'ignore') \
+        .decode('utf-8') \
+        .lower()
+
+
+def ler_html(nome_arquivo):
+    """Função para ler o conteúdo de um arquivo HTML"""
+    try:
+        with open(
+            os.path.join(HTML_PATH, nome_arquivo),
+            'r',
+            encoding='utf-8'
+        ) as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"Arquivo HTML {nome_arquivo} não encontrado.")
+        return None
 
 
 def processar_cursos(df):
@@ -12,7 +36,9 @@ def processar_cursos(df):
         "ANO_ESCOLAR", "SEGMENTO_ESCOLAR", "TITULO",
         "ORDEM_MODULO", "NOME_MODULO", "ORDEM_CAPITULO",
         "NOME_CAPITULO", "ORDEM_AULA", "TITULO_AULA",
-        "PALAVRAS_CHAVES", "CODIGOS_BNCC"
+        "PALAVRAS_CHAVES", "CODIGOS_BNCC", "NIVEL",
+        "LINK_CONTEUDO", "ESTRATEGIA_APRENDIZAGEM",
+        "TIPO_AULA",
     ]].drop_duplicates()
 
     cursos["COR"] = COR
@@ -158,32 +184,73 @@ def inserir_cursos(engine, cursos_df):
 
             capitulos_inseridos[capitulo_chave] = capitulo_id
 
-            # Obter o ID de T_TIPO_AULA para 'CONTEÚDO EM TEXTO E IMAGEM'
+            # Processar tipo de aula (normalizando o texto)
+            tipo_aula_nome_normalizado = normalizar_texto(row["TIPO_AULA"])
             tipo_aula_id = conn.execute(
-                text(
-                    "SELECT ID FROM T_TIPO_AULA WITH(NOLOCK) WHERE NOME=:nome"
-                ),
-                {"nome": TIPO_AULA}
+              text(
+                "SELECT ID FROM T_TIPO_AULA WITH(NOLOCK) "
+                "WHERE LOWER(REPLACE(REPLACE(REPLACE(NOME, 'ã', 'a'), "
+                "'é', 'e'), 'ç', 'c')) = :nome"
+              ),
+              {"nome": tipo_aula_nome_normalizado}
             ).scalar()
 
             if not tipo_aula_id:
-                print(f"Erro: Tipo de Aula '{TIPO_AULA}' não encontrado!")
+                print(
+                    f"Erro: Tipo de Aula '{row['TIPO_AULA']}' não encontrado!"
+                    )
+                continue
+
+            # Obter o ID do FK_NIVEL_COMPLEXIDADE com base no nível fornecido
+            nivel = f"Nível {int(row['NIVEL'])}"
+            nivel_complexidade_id = conn.execute(
+                text(
+                    "SELECT ID FROM T_NIVEL_COMPLEXIDADE WITH(NOLOCK) "
+                    "WHERE DESCRICAO=:descricao"
+                ),
+                {"descricao": nivel}
+            ).scalar()
+
+            if not nivel_complexidade_id:
+                print(f"Erro: Nível de Complexidade '{nivel}' não encontrado!")
+                continue
+
+            # Buscar o ID da Estratégia de Aprendizagem
+            estrategia_id = conn.execute(
+                text(
+                    "SELECT ID FROM T_ESTRATEGIA_APRENDIZAGEM WITH(NOLOCK) "
+                    "WHERE UPPER(DESCRICAO) = UPPER(:descricao)"
+                ),
+                {"descricao": row["ESTRATEGIA_APRENDIZAGEM"]}
+            ).scalar()
+
+            if not estrategia_id:
+                print(
+                  f"Erro: Estratégia de Aprendizagem "
+                  f"'{row['ESTRATEGIA_APRENDIZAGEM']}' não encontrada!"
+                )
                 continue
 
             # Processar aulas
             aula_id = conn.execute(
-              text(
-                "SELECT ID FROM T_AULAS WITH(NOLOCK) "
-                "WHERE TITULO=:titulo AND "
-                "FK_CAPITULO=:fk_capitulo"
-              ),
-              {
-                "titulo": row["TITULO_AULA"],
-                "fk_capitulo": capitulo_id
-              }
+                text(
+                    "SELECT ID FROM T_AULAS WITH(NOLOCK) "
+                    "WHERE TITULO=:titulo AND "
+                    "FK_CAPITULO=:fk_capitulo AND "
+                    "ORDEM=:ordem"
+                ),
+                {
+                    "titulo": row["TITULO_AULA"],
+                    "fk_capitulo": capitulo_id,
+                    "ordem": row["ORDEM_AULA"]
+                }
             ).scalar()
 
             if not aula_id:
+                # Ler o conteúdo HTML para a aula
+                nome_html = f"{row['LINK_CONTEUDO']}.html"
+                conteudo_aula = ler_html(nome_html)
+
                 aula_result = conn.execute(
                     text(
                         "EXEC sp_inserir_aula @titulo=:titulo, @ordem=:ordem,"
@@ -191,6 +258,10 @@ def inserir_cursos(engine, cursos_df):
                         " @fk_curso=:fk_curso, @fk_modulo=:fk_modulo,"
                         " @fk_tipo_aula=:fk_tipo_aula,"
                         " @palavras_chaves=:palavras_chaves,"
+                        " @fk_nivel_complexidade=:fk_nivel_complexidade,"
+                        " @conteudo_aula=:conteudo_aula,"
+                        " @fk_estrategia_aprendizagem=:"
+                        "fk_estrategia_aprendizagem,"
                         " @novo_id=:novo_id OUTPUT"
                     ),
                     {
@@ -201,6 +272,9 @@ def inserir_cursos(engine, cursos_df):
                         "fk_curso": curso_id,
                         "fk_modulo": modulo_id,
                         "fk_tipo_aula": tipo_aula_id,
+                        "fk_nivel_complexidade": nivel_complexidade_id,
+                        "conteudo_aula": conteudo_aula,
+                        "fk_estrategia_aprendizagem": estrategia_id,
                         "novo_id": 0,
                     },
                 )
