@@ -2,13 +2,13 @@ import os
 from sqlalchemy import create_engine, text
 
 
-# Configuração da conexão com o banco de dados SQL Server
+# Configuração de conexão com o banco de dados SQL Server
 def criar_engine():
-    server = "18.224.230.12"
-    database = "EPM_MOSAICO"
-    username = "usr_mosaico"
-    password = "fNntAxwEMTTrjV4K"
-    driver = "ODBC Driver 17 for SQL Server"
+    server = os.getenv("DB_SERVER")
+    database = os.getenv("DB_DATABASE")
+    username = os.getenv("DB_USERNAME")
+    password = os.getenv("DB_PASSWORD")
+    driver = os.getenv("DB_DRIVER")
     connection_string = (
         f"mssql+pyodbc://{username}:{password}@{server}:1433/{database}?"
         f"driver={driver}&Encrypt=yes&TrustServerCertificate=yes&Connection "
