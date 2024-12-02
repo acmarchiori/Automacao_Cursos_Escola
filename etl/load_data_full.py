@@ -65,43 +65,49 @@ def normalizar_tipo_aula(tipo_aula):
 
 
 def carregar_dados():
-    # Carregar a planilha usando openpyxl
-    file_path = (
-        "/home/acmarchiori/Área de Trabalho/Importações Mosaico/"
-        "2025_BANCO DE MATERIAIS_REDACAO.xlsm"
-    )
-    wb = load_workbook(filename=file_path, data_only=True)
-    ws = wb["Plan1"]
+    # Caminho para a pasta contendo as planilhas
+    pasta_path = "/home/acmarchiori/Área de Trabalho/Importações Mosaico/"
 
-    # Extrair os dados da planilha
-    data = ws.values
-    columns = next(data)[0:]
-    df = pd.DataFrame(data, columns=columns)
+    # Listar todos os arquivos na pasta
+    arquivos = [f for f in os.listdir(pasta_path) if f.endswith('.xlsm')]
 
-    # Imprimir as colunas do DataFrame
-    print("Colunas disponíveis no DataFrame:", df.columns.tolist())
+    # Iterar sobre os arquivos e carregar os dados de cada planilha
+    for arquivo in arquivos:
+        file_path = os.path.join(pasta_path, arquivo)
+        print(f"Carregando planilha: {file_path}")
 
-    # Renomear colunas conforme necessário
-    df.rename(
-        columns={
-            "ANO": "ANO_ESCOLAR",
-            "SEGMENTO": "SEGMENTO_ESCOLAR",
-            "CURSO": "TITULO",
-            "MÓDULO": "NOME_MODULO",
-            "ORDEM MÓDULO": "ORDEM_MODULO",
-            "CAPÍTULO": "NOME_CAPITULO",
-            "ORDEM CAPÍTULO": "ORDEM_CAPITULO",
-            "AULA": "TITULO_AULA",
-            "ORDEM AULA": "ORDEM_AULA",
-            "BNCC": "CODIGOS_BNCC",
-            "PALAVRAS CHAVES": "PALAVRAS_CHAVES",
-            "NÍVEL": "NIVEL",
-            "LINK/CONTEÚDO": "LINK_CONTEUDO",
-            "ESTRATÉGIA DE APRENDIZAGEM": "ESTRATEGIA_APRENDIZAGEM",
-            "TIPO DE AULA": "TIPO_AULA",
-        },
-        inplace=True,
-    )
+        wb = load_workbook(filename=file_path, data_only=True)
+        ws = wb["Plan1"]
+
+        # Extrair os dados da planilha
+        data = ws.values
+        columns = next(data)[0:]
+        df = pd.DataFrame(data, columns=columns)
+
+        # Imprimir as colunas do DataFrame
+        print("Colunas disponíveis no DataFrame:", df.columns.tolist())
+
+        # Renomear colunas conforme necessário
+        df.rename(
+            columns={
+                "ANO": "ANO_ESCOLAR",
+                "SEGMENTO": "SEGMENTO_ESCOLAR",
+                "CURSO": "TITULO",
+                "MÓDULO": "NOME_MODULO",
+                "ORDEM MÓDULO": "ORDEM_MODULO",
+                "CAPÍTULO": "NOME_CAPITULO",
+                "ORDEM CAPÍTULO": "ORDEM_CAPITULO",
+                "AULA": "TITULO_AULA",
+                "ORDEM AULA": "ORDEM_AULA",
+                "BNCC": "CODIGOS_BNCC",
+                "PALAVRAS CHAVES": "PALAVRAS_CHAVES",
+                "NÍVEL": "NIVEL",
+                "LINK/CONTEÚDO": "LINK_CONTEUDO",
+                "ESTRATÉGIA DE APRENDIZAGEM": "ESTRATEGIA_APRENDIZAGEM",
+                "TIPO DE AULA": "TIPO_AULA",
+            },
+            inplace=True,
+        )
 
     # Normalizar valores de ANO_ESCOLAR para garantir correspondência
     # com o banco de dados

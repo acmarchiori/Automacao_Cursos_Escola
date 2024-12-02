@@ -1,6 +1,7 @@
 import os
 import requests
 import zipfile
+import rarfile
 import pandas as pd
 from sqlalchemy.sql import text
 import base64
@@ -42,27 +43,48 @@ def baixar_arquivo_google_drive(url, destino):
     print(f"Link de download convertido: {download_url}")  # Log de depuração
     response = requests.get(download_url, stream=True)
     if response.status_code == 200:
+        # Determinar o nome do arquivo a partir do cabeçalho de resposta
+        content_disposition = response.headers.get('content-disposition')
+        if content_disposition:
+            filename = content_disposition.split('filename=')[1].strip('"')
+        else:
+            filename = f"{file_id}.zip"
+            # Nome padrão caso não seja possível determinar
+
+        # Garantir que o diretório de destino exista
+        os.makedirs(os.path.dirname(destino), exist_ok=True)
+
+        destino = os.path.join(os.path.dirname(destino), filename)
         with open(destino, 'wb') as f:
             f.write(response.content)
         print(f"Arquivo baixado com sucesso: {destino}")  # Log de depuração
-        return True
+        return destino
     else:
         print(f"Erro ao baixar o arquivo: {response.status_code}")
         return False
 
 
-def extrair_zip(arquivo_zip, destino):
-    """Extrai um arquivo zip para o destino especificado e """
-    """retorna o caminho do HTML e da pasta de imagens."""
+def extrair_arquivo(arquivo, destino):
+    """Extrai um arquivo zip ou rar para o destino especificado e
+    retorna o caminho do HTML e da pasta de imagens."""
     # Log de depuração
-    print(f"Iniciando extração do arquivo ZIP: {arquivo_zip}")
+    print(f"Iniciando extração do arquivo: {arquivo}")
     try:
-        with zipfile.ZipFile(arquivo_zip, 'r') as zip_ref:
-            zip_ref.extractall(destino)
+        if arquivo.lower().endswith('.zip'):
+            with zipfile.ZipFile(arquivo, 'r') as zip_ref:
+                zip_ref.extractall(destino)
+        elif arquivo.lower().endswith('.rar'):
+            with rarfile.RarFile(arquivo, 'r') as rar_ref:
+                rar_ref.extractall(destino)
+        else:
+            print(
+              f"Erro: O arquivo {arquivo} não é um arquivo ZIP ou RAR válido."
+            )
+            return None, None
         # Log de depuração
-        print(f"Arquivo {arquivo_zip} extraído para {destino}")
-    except zipfile.BadZipFile:
-        print(f"Erro: O arquivo {arquivo_zip} não é um arquivo ZIP válido.")
+        print(f"Arquivo {arquivo} extraído para {destino}")
+    except (zipfile.BadZipFile, rarfile.BadRarFile):
+        print(f"Erro: O arquivo {arquivo} não é um arquivo ZIP ou RAR válido.")
         return None, None
 
     # Localizar o arquivo HTML e a pasta de imagens
@@ -251,14 +273,21 @@ def inserir_cursos(engine, cursos_df):
             # Processar capítulos
             capitulo_chave = (
               modulo_id, row["NOME_CAPITULO"], row["ORDEM_CAPITULO"])
-            capitulo_id = capitulos_inseridos.get(
-              capitulo_chave) or conn.execute(
-                text(
+            capitulo_id = capitulos_inseridos.get(capitulo_chave)
+
+            if not capitulo_id:
+                capitulo_id = conn.execute(
+                  text(
                     "SELECT ID FROM T_CAPITULOS "
-                    "WHERE NOME=:nome AND FK_MODULO=:fk_modulo"
-                ),
-                {"nome": row["NOME_CAPITULO"], "fk_modulo": modulo_id}
-            ).scalar()
+                    "WHERE NOME=:nome AND FK_MODULO=:fk_modulo "
+                    "AND ORDEM=:ordem"
+                  ),
+                  {
+                    "nome": row["NOME_CAPITULO"],
+                    "fk_modulo": modulo_id,
+                    "ordem": int(row["ORDEM_CAPITULO"])
+                  }
+                ).scalar()
 
             if not capitulo_id:
                 capitulo_result = conn.execute(
@@ -271,7 +300,7 @@ def inserir_cursos(engine, cursos_df):
                     ),
                     {
                         "nome": row["NOME_CAPITULO"],
-                        "ordem": row["ORDEM_CAPITULO"],
+                        "ordem": int(row["ORDEM_CAPITULO"]),
                         "fk_modulo": modulo_id,
                         "novo_id": 0,
                     },
@@ -307,16 +336,21 @@ def inserir_cursos(engine, cursos_df):
                       f"não encontrado!")
                 continue
 
-            nivel = f"Nível {int(row['NIVEL'])}"
-            nivel_complexidade_id = conn.execute(
-                text(
-                    "SELECT ID FROM T_NIVEL_COMPLEXIDADE "
-                    "WHERE DESCRICAO=:descricao"
-                ),
-                {"descricao": nivel}
-            ).scalar()
+            nivel = row['NIVEL']
+            nivel_complexidade_id = None
+            if nivel:
+                if isinstance(nivel, str) and nivel.startswith("Nível"):
+                    nivel = nivel.split()[-1]
+                nivel = f"Nível {int(nivel)}"
+                nivel_complexidade_id = conn.execute(
+                    text(
+                        "SELECT ID FROM T_NIVEL_COMPLEXIDADE "
+                        "WHERE DESCRICAO=:descricao"
+                    ),
+                    {"descricao": nivel}
+                ).scalar()
 
-            if not nivel_complexidade_id:
+            if not nivel_complexidade_id and nivel is not None:
                 print(f"Erro: Nível de Complexidade '{nivel}' não encontrado!")
                 continue
 
@@ -335,6 +369,10 @@ def inserir_cursos(engine, cursos_df):
                   )
                 continue
 
+            # Certifique-se de que 'ORDEM_AULA' seja um inteiro
+            ordem_aula = int(row[
+                "ORDEM_AULA"]) if row["ORDEM_AULA"] is not None else None
+
             aula_id = conn.execute(
                 text(
                     "SELECT ID FROM T_AULAS WHERE TITULO=:titulo AND "
@@ -343,7 +381,7 @@ def inserir_cursos(engine, cursos_df):
                 {
                     "titulo": row["TITULO_AULA"],
                     "fk_capitulo": capitulo_id,
-                    "ordem": row["ORDEM_AULA"]
+                    "ordem": ordem_aula
                 }
             ).scalar()
 
@@ -354,22 +392,26 @@ def inserir_cursos(engine, cursos_df):
                   row["LINK_CONTEUDO"].strip():
                     temp_dir = os.path.join(DOWNLOAD_PATH, f"aula_{idx}")
                     os.makedirs(temp_dir, exist_ok=True)
-                    zip_path = os.path.join(temp_dir, "conteudo.zip")
+                    # Determinar a extensão do arquivo a partir do link
+                    arquivo_extensao = row["LINK_CONTEUDO"].split('.')[-1]
+                    arquivo_path = os.path.join(
+                        temp_dir, f"conteudo.{arquivo_extensao}")
                     # Log de depuração
                     print(
                       f"Baixando conteúdo para a aula "
                       f"'{row['TITULO_AULA']}'..."
                       )
-                    if baixar_arquivo_google_drive(
-                      row["LINK_CONTEUDO"], zip_path
-                    ):
+                    arquivo_baixado = baixar_arquivo_google_drive(
+                      row["LINK_CONTEUDO"], arquivo_path
+                    )
+                    if arquivo_baixado:
                         # Log de depuração
                         print(
                           f"Extraindo conteúdo para a aula '"
                           f"{row['TITULO_AULA']}'..."
                           )
-                        html_file, pasta_imagens = extrair_zip(
-                          zip_path, temp_dir
+                        html_file, pasta_imagens = extrair_arquivo(
+                          arquivo_baixado, temp_dir
                         )
 
                         if html_file and pasta_imagens:
@@ -436,28 +478,38 @@ def inserir_cursos(engine, cursos_df):
                   f"já existe com ID {aula_id}"
                     )
 
-            codigos_bncc = (
-              row["CODIGOS_BNCC"].split(';') if row["CODIGOS_BNCC"] else []
-            )
-            bncc_habilidades = ";".join(
-              [codigo.strip() for codigo in codigos_bncc]
+            # Processar códigos BNCC
+            codigos_bncc = []
+            if row["CODIGOS_BNCC"]:
+                codigos_bncc = row["CODIGOS_BNCC"].split(';')
+            bncc_habilidades = (
+              ";".join([codigo.strip() for codigo in codigos_bncc])
+              if codigos_bncc else None
             )
 
             try:
                 conn.execute(
-                    text(
-                        "EXEC sp_inserir_bncc_aula :fk_aula, "
-                        ":bncc_habilidades, :linha"
-                    ),
-                    {
-                        "fk_aula": aula_id,
-                        "bncc_habilidades": bncc_habilidades,
-                        "linha": idx + 1
-                    }
+                  text(
+                    "EXEC sp_inserir_bncc_aula "
+                    ":fk_aula, :bncc_habilidades, :linha"
+                  ),
+                  {
+                    "fk_aula": aula_id,
+                    "bncc_habilidades": bncc_habilidades,
+                    "linha": idx + 1
+                  }
                 )
                 print(
                   f"Códigos BNCC inseridos para a aula ID {aula_id} "
                   f"na linha {idx + 1}"
-                  )  # Log de depuração
+                )  # Log de depuração
             except Exception as e:
                 print(f"Erro ao inserir códigos BNCC na linha {idx + 1}: {e}")
+
+        # Chamar a procedure para remover comentários HTML após a inserção
+        # das aulas
+        try:
+            conn.execute(text("EXEC dbo.RemoveAllHtmlComments"))
+            print("Comentários HTML removidos com sucesso.")
+        except Exception as e:
+            print(f"Erro ao remover comentários HTML: {e}")
