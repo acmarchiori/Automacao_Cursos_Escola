@@ -68,8 +68,9 @@ def carregar_dados():
     # Carregar a planilha usando openpyxl
     file_path = (
         "/home/acmarchiori/Área de Trabalho/Importações Mosaico/"
-        "2025_BANCO DE MATERIAIS_REDACAO.xlsm"
+        "2025_BANCO DE MATERIAIS_FÍSICA.xlsm"
     )
+    nome_planilha = os.path.basename(file_path)
     wb = load_workbook(filename=file_path, data_only=True)
     ws = wb["Plan1"]
 
@@ -150,7 +151,7 @@ def carregar_dados():
     engine = criar_engine()
 
     # Chamar a função para inserir os cursos
-    inserir_cursos(engine, cursos_df)
+    inserir_cursos(engine, cursos_df, nome_planilha)
     print("Processamento completo. Todas as linhas foram processadas.")
 
 

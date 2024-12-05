@@ -160,10 +160,13 @@ def processar_cursos(df):
     return cursos
 
 
-def inserir_cursos(engine, cursos_df):
+def inserir_cursos(engine, cursos_df, nome_planilha):
     # Dicionários para rastrear IDs já inseridos
     modulos_inseridos = {}
     capitulos_inseridos = {}
+    ultimo_fk_curso = None
+    ultimo_fk_modulo = None
+    ultimo_fk_capitulo = None
     with engine.begin() as conn:
         for idx, row in cursos_df.iterrows():
             print(f"Processando curso: {row['TITULO']}")  # Log de depuração
@@ -207,7 +210,7 @@ def inserir_cursos(engine, cursos_df):
             if not curso_id:
                 result = conn.execute(
                     text(
-                        "EXEC sp_inserir_curso "
+                        "EXEC dbo.sp_inserir_curso "
                         "@titulo=:titulo, "
                         "@tipo_curso=:tipo_curso, "
                         "@cor=:cor, "
@@ -227,10 +230,34 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 curso_id = result.scalar()
+                acao = "INSERT"
                 # Log de depuração
                 print(f"Curso '{row['TITULO']}' inserido com ID {curso_id}")
             else:
+                acao = "SELECT"
                 print(f"Curso '{row['TITULO']}' já existe com ID {curso_id}")
+
+            # Inserir registro na tabela T_LOG_IMPORTACAO se o
+            # FK_CURSO for diferente do último inserido
+            if curso_id != ultimo_fk_curso:
+                conn.execute(
+                  text(
+                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
+                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
+                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                    "VALUES (:nome_planilha, :fk_curso, NULL, NULL, NULL, "
+                    ":acao, GETDATE(), NULL, :fk_segmento, :fk_ano)"
+                  ),
+                  {
+                    "nome_planilha": nome_planilha,
+                    "fk_curso": curso_id,
+                    "acao": acao,
+                    "fk_segmento": segmento_id,
+                    "fk_ano": ano_id
+                  }
+                )
+                # Atualizar o último FK_CURSO inserido
+                ultimo_fk_curso = curso_id
 
             # Processar módulos
             modulo_chave = (row["NOME_MODULO"], row["ORDEM_MODULO"])
@@ -245,7 +272,7 @@ def inserir_cursos(engine, cursos_df):
             if not modulo_id:
                 modulo_result = conn.execute(
                     text(
-                        "EXEC sp_inserir_modulo "
+                        "EXEC dbo.sp_inserir_modulo "
                         "@nome=:nome, "
                         "@ordem=:ordem, "
                         "@fk_curso=:fk_curso, "
@@ -259,14 +286,36 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 modulo_id = modulo_result.scalar()
+                acao = "INSERT"
                 # Log de depuração
                 print(
                   f"Módulo '{row['NOME_MODULO']}' inserido com ID {modulo_id}"
                 )
             else:
+                acao = "SELECT"
                 print(
                   f"Módulo '{row['NOME_MODULO']}' já existe com ID {modulo_id}"
-                  )
+                )
+
+            # Inserir registro na tabela T_LOG_IMPORTACAO
+            if modulo_id != ultimo_fk_modulo:
+                conn.execute(
+                  text(
+                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
+                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
+                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                    "VALUES (:nome_planilha, :fk_curso, :fk_modulo, NULL, "
+                    "NULL, :acao, GETDATE(), NULL, NULL, NULL)"
+                  ),
+                  {
+                    "nome_planilha": nome_planilha,
+                    "fk_curso": curso_id,
+                    "fk_modulo": modulo_id,
+                    "acao": acao
+                  }
+                )
+                # Atualizar o último FK_MODULO inserido
+                ultimo_fk_modulo = modulo_id
 
             modulos_inseridos[modulo_chave] = modulo_id
 
@@ -276,23 +325,9 @@ def inserir_cursos(engine, cursos_df):
             capitulo_id = capitulos_inseridos.get(capitulo_chave)
 
             if not capitulo_id:
-                capitulo_id = conn.execute(
-                  text(
-                    "SELECT ID FROM T_CAPITULOS "
-                    "WHERE NOME=:nome AND FK_MODULO=:fk_modulo "
-                    "AND ORDEM=:ordem"
-                  ),
-                  {
-                    "nome": row["NOME_CAPITULO"],
-                    "fk_modulo": modulo_id,
-                    "ordem": int(row["ORDEM_CAPITULO"])
-                  }
-                ).scalar()
-
-            if not capitulo_id:
                 capitulo_result = conn.execute(
                     text(
-                        "EXEC sp_inserir_capitulo "
+                        "EXEC dbo.sp_inserir_capitulo "
                         "@nome=:nome, "
                         "@ordem=:ordem, "
                         "@fk_modulo=:fk_modulo, "
@@ -306,16 +341,39 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 capitulo_id = capitulo_result.scalar()
+                acao = "INSERT"
                 # Log de depuração
                 print(
                   f"Capítulo '{row['NOME_CAPITULO']}' inserido com ID "
                   f"{capitulo_id}"
                 )
             else:
+                acao = "SELECT"
                 print(
                   f"Capítulo '{row['NOME_CAPITULO']}' já existe com ID "
                   f"{capitulo_id}"
-                  )
+                )
+
+            # Inserir registro na tabela T_LOG_IMPORTACAO
+            if capitulo_id != ultimo_fk_capitulo:
+                conn.execute(
+                  text(
+                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
+                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
+                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                    "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
+                    ":fk_capitulo, NULL, :acao, GETDATE(), NULL, NULL, NULL)"
+                  ),
+                  {
+                    "nome_planilha": nome_planilha,
+                    "fk_curso": curso_id,
+                    "fk_modulo": modulo_id,
+                    "fk_capitulo": capitulo_id,
+                    "acao": acao
+                  }
+                )
+                # Atualizar o último FK_CAPITULO inserido
+                ultimo_fk_capitulo = capitulo_id
 
             capitulos_inseridos[capitulo_chave] = capitulo_id
 
@@ -470,13 +528,35 @@ def inserir_cursos(engine, cursos_df):
                     },
                 )
                 aula_id = aula_result.scalar()
+                acao = "INSERT"
                 # Log de depuração
                 print(f"Aula '{row['TITULO_AULA']}' inserida com ID {aula_id}")
             else:
+                acao = "SELECT"
                 print(
-                  f"Aula '{row['TITULO_AULA']}' "
-                  f"já existe com ID {aula_id}"
-                    )
+                  f"Aula '{row['TITULO_AULA']}' já existe com ID {aula_id}"
+                )
+
+            # Inserir registro na tabela T_LOG_IMPORTACAO
+            conn.execute(
+              text(
+                "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
+                "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
+                "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
+                ":fk_capitulo, :fk_aula, :acao, GETDATE(), :fk_nivel, "
+                "NULL, NULL)"
+              ),
+              {
+                "nome_planilha": nome_planilha,
+                "fk_curso": curso_id,
+                "fk_modulo": modulo_id,
+                "fk_capitulo": capitulo_id,
+                "fk_aula": aula_id,
+                "acao": acao,
+                "fk_nivel": nivel_complexidade_id
+              }
+            )
 
             # Processar códigos BNCC
             codigos_bncc = []
