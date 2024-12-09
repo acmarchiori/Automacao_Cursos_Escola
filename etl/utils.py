@@ -305,13 +305,15 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                     "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
                     "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
                     "VALUES (:nome_planilha, :fk_curso, :fk_modulo, NULL, "
-                    "NULL, :acao, GETDATE(), NULL, NULL, NULL)"
+                    "NULL, :acao, GETDATE(), NULL, :fk_segmento, :fk_ano)"
                   ),
                   {
                     "nome_planilha": nome_planilha,
                     "fk_curso": curso_id,
                     "fk_modulo": modulo_id,
-                    "acao": acao
+                    "acao": acao,
+                    "fk_segmento": segmento_id,
+                    "fk_ano": ano_id
                   }
                 )
                 # Atualizar o último FK_MODULO inserido
@@ -362,14 +364,17 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                     "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
                     "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
                     "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
-                    ":fk_capitulo, NULL, :acao, GETDATE(), NULL, NULL, NULL)"
+                    ":fk_capitulo, NULL, :acao, GETDATE(), NULL, "
+                    ":fk_segmento, :fk_ano)"
                   ),
                   {
                     "nome_planilha": nome_planilha,
                     "fk_curso": curso_id,
                     "fk_modulo": modulo_id,
                     "fk_capitulo": capitulo_id,
-                    "acao": acao
+                    "acao": acao,
+                    "fk_segmento": segmento_id,
+                    "fk_ano": ano_id
                   }
                 )
                 # Atualizar o último FK_CAPITULO inserido
