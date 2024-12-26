@@ -32,7 +32,12 @@ def baixar_arquivo_google_drive(url, destino):
         return False
 
     try:
-        file_id = url.split('/d/')[1].split('/')[0]
+        if '/d/' in url:
+            file_id = url.split('/d/')[1].split('/')[0]
+        elif 'id=' in url:
+            file_id = url.split('id=')[1].split('&')[0]
+        else:
+            raise IndexError
     except IndexError:
         print(f"Erro: URL do Google Drive inválida: {url}")
         return False
@@ -41,27 +46,38 @@ def baixar_arquivo_google_drive(url, destino):
         f"https://drive.google.com/u/0/uc?id={file_id}&export=download"
     )
     print(f"Link de download convertido: {download_url}")  # Log de depuração
-    response = requests.get(download_url, stream=True)
-    if response.status_code == 200:
-        # Determinar o nome do arquivo a partir do cabeçalho de resposta
-        content_disposition = response.headers.get('content-disposition')
-        if content_disposition:
-            filename = content_disposition.split('filename=')[1].strip('"')
-        else:
-            filename = f"{file_id}.zip"
-            # Nome padrão caso não seja possível determinar
 
-        # Garantir que o diretório de destino exista
-        os.makedirs(os.path.dirname(destino), exist_ok=True)
+    headers = {
+      "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+      )
+    }
 
-        destino = os.path.join(os.path.dirname(destino), filename)
-        with open(destino, 'wb') as f:
-            f.write(response.content)
-        print(f"Arquivo baixado com sucesso: {destino}")  # Log de depuração
-        return destino
-    else:
-        print(f"Erro ao baixar o arquivo: {response.status_code}")
+    try:
+        response = requests.get(download_url, headers=headers, timeout=10)
+        # Levanta um erro para códigos de status HTTP ruins
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao baixar o arquivo: {e}")
         return False
+
+    # Determinar o nome do arquivo a partir do cabeçalho de resposta
+    content_disposition = response.headers.get('content-disposition')
+    if content_disposition:
+        filename = content_disposition.split('filename=')[1].strip('"')
+    else:
+        filename = f"{file_id}.zip"
+        # Nome padrão caso não seja possível determinar
+
+    # Garantir que o diretório de destino exista
+    os.makedirs(os.path.dirname(destino), exist_ok=True)
+
+    destino = os.path.join(os.path.dirname(destino), filename)
+    with open(destino, 'wb') as f:
+        f.write(response.content)
+    print(f"Arquivo baixado com sucesso: {destino}")  # Log de depuração
+    return destino
 
 
 def extrair_arquivo(arquivo, destino):

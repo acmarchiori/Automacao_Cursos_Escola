@@ -1,6 +1,7 @@
 import unicodedata
 import pandas as pd
 import os
+import argparse
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 from utils import processar_cursos, inserir_cursos
@@ -64,12 +65,7 @@ def normalizar_tipo_aula(tipo_aula):
     return tipo_aula
 
 
-def carregar_dados():
-    # Carregar a planilha usando openpyxl
-    file_path = (
-        "/home/acmarchiori/Área de Trabalho/Importações Mosaico/"
-        "2025_BANCO DE MATERIAIS_FÍSICA.xlsm"
-    )
+def carregar_dados(file_path):
     nome_planilha = os.path.basename(file_path)
     wb = load_workbook(filename=file_path, data_only=True)
     ws = wb["Plan1"]
@@ -134,7 +130,7 @@ def carregar_dados():
     if link_col_idx is None:
         raise ValueError("Coluna 'LINK/CONTEÚDO' não encontrada na planilha.")
 
-# Extrair links do Google Drive
+    # Extrair links do Google Drive
     for row in ws.iter_rows(
         min_row=2, max_row=ws.max_row,
         min_col=link_col_idx,
@@ -152,8 +148,33 @@ def carregar_dados():
 
     # Chamar a função para inserir os cursos
     inserir_cursos(engine, cursos_df, nome_planilha)
-    print("Processamento completo. Todas as linhas foram processadas.")
+    print(f"Processamento completo para a planilha {nome_planilha}.")
+
+
+def carregar_dados_pasta(pasta_path):
+    for file_name in os.listdir(pasta_path):
+        if file_name.endswith(".xlsm"):
+            file_path = os.path.join(pasta_path, file_name)
+            carregar_dados(file_path)
 
 
 if __name__ == "__main__":
-    carregar_dados()
+    parser = argparse.ArgumentParser(
+        description="Importar planilhas para o banco de dados.")
+    parser.add_argument(
+        "--file", type=str, help="Caminho para a planilha específica.")
+    parser.add_argument(
+      "--folder", type=str,
+      help="Caminho para a pasta contendo as planilhas."
+    )
+    args = parser.parse_args()
+
+    if args.file:
+        carregar_dados(args.file)
+    elif args.folder:
+        carregar_dados_pasta(args.folder)
+    else:
+        print(
+            "Por favor, especifique um arquivo ou uma pasta usando os "
+            "argumentos --file ou --folder."
+        )
