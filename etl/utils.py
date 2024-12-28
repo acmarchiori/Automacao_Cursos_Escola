@@ -216,14 +216,21 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 )
                 continue
 
+            # Verificar se o curso já existe com o mesmo título, segmento e ano
             curso_id = conn.execute(
                 text(
-                    "SELECT ID FROM T_CURSOS WHERE TITULO=:titulo"
+                    "SELECT ID FROM T_CURSOS WHERE TITULO=:titulo "
+                    "AND FK_SEGMENTO_ESCOLAR=:fk_segmento "
+                    "AND FK_ANO_ESCOLAR=:fk_ano"
                 ),
-                {"titulo": row["TITULO"]}
+                {
+                    "titulo": row["TITULO"],
+                    "fk_segmento": segmento_id,
+                    "fk_ano": ano_id
+                }
             ).scalar()
 
-            if not curso_id:
+            if curso_id is None:
                 result = conn.execute(
                     text(
                         "EXEC dbo.sp_inserir_curso "
@@ -247,7 +254,6 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 )
                 curso_id = result.scalar()
                 acao = "INSERT"
-                # Log de depuração
                 print(f"Curso '{row['TITULO']}' inserido com ID {curso_id}")
             else:
                 acao = "SELECT"
