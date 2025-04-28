@@ -152,9 +152,11 @@ def carregar_dados(file_path):
 
 
 def carregar_dados_pasta(pasta_path):
+    print(f"Processando a pasta: {pasta_path}")  # Log de depuração
     for file_name in os.listdir(pasta_path):
-        if file_name.endswith(".xlsm"):
+        if file_name.endswith(".xlsm") or file_name.endswith(".xlsx"):
             file_path = os.path.join(pasta_path, file_name)
+            print(f"Processando o arquivo: {file_path}")  # Log de depuração
             carregar_dados(file_path)
 
 

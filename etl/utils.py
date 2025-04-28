@@ -187,6 +187,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
         for idx, row in cursos_df.iterrows():
             print(f"Processando curso: {row['TITULO']}")  # Log de depuração
             # Buscar IDs necessários
+            print(f"Buscando segmento: {row['SEGMENTO_ESCOLAR']}")
             segmento_id = conn.execute(
                 text(
                     "SELECT ID FROM T_SEGMENTOS_ESCOLARES WHERE NOME=:nome"
@@ -194,6 +195,10 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 {"nome": row["SEGMENTO_ESCOLAR"]}
             ).scalar()
 
+            print(
+              f"Buscando ano: {row['ANO_ESCOLAR']} para segmento ID: "
+              f"{segmento_id}"
+            )
             ano_id = conn.execute(
                 text(
                     "SELECT ID FROM T_ANOS_ESCOLARES WHERE NOME=:nome "
@@ -202,12 +207,19 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 {"nome": row["ANO_ESCOLAR"], "fk_segmento": segmento_id}
             ).scalar()
 
+            print(f"Buscando área BNCC: {row['AREA_BNCC']}")
             area_bncc_id = conn.execute(
                 text(
                     "SELECT ID FROM T_AREAS_BNCC WHERE CODIGO=:codigo"
                 ),
                 {"codigo": "LP"}
             ).scalar()
+
+            # Adicionar logs de depuração
+            print(
+              f"Segmento ID: {segmento_id}, Ano ID: {ano_id}, "
+              f"Área BNCC ID: {area_bncc_id}"
+            )
 
             if not segmento_id or not ano_id or not area_bncc_id:
                 print(
@@ -461,12 +473,15 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
             aula_id = conn.execute(
                 text(
                     "SELECT ID FROM T_AULAS WHERE TITULO=:titulo AND "
-                    "FK_CAPITULO=:fk_capitulo AND ORDEM=:ordem"
+                    "FK_CAPITULO=:fk_capitulo AND ORDEM=:ordem AND "
+                    "FK_CURSO=:fk_curso AND FK_MODULO=:fk_modulo"
                 ),
                 {
                     "titulo": row["TITULO_AULA"],
                     "fk_capitulo": capitulo_id,
-                    "ordem": ordem_aula
+                    "ordem": ordem_aula,
+                    "fk_curso": curso_id,       # Novo parâmetro
+                    "fk_modulo": modulo_id      # Novo parâmetro
                 }
             ).scalar()
 
