@@ -18,10 +18,12 @@ DOWNLOAD_PATH = "/home/acmarchiori/Área de Trabalho/HTLM_LITERATURA"
 
 def normalizar_texto(texto):
     """Função para remover acentos e normalizar o texto."""
-    return unicodedata.normalize('NFKD', texto) \
-        .encode('ASCII', 'ignore') \
-        .decode('utf-8') \
+    return (
+        unicodedata.normalize("NFKD", texto)
+        .encode("ASCII", "ignore")
+        .decode("utf-8")
         .lower()
+    )
 
 
 def baixar_arquivo_google_drive(url, destino):
@@ -32,10 +34,10 @@ def baixar_arquivo_google_drive(url, destino):
         return False
 
     try:
-        if '/d/' in url:
-            file_id = url.split('/d/')[1].split('/')[0]
-        elif 'id=' in url:
-            file_id = url.split('id=')[1].split('&')[0]
+        if "/d/" in url:
+            file_id = url.split("/d/")[1].split("/")[0]
+        elif "id=" in url:
+            file_id = url.split("id=")[1].split("&")[0]
         else:
             raise IndexError
     except IndexError:
@@ -48,10 +50,10 @@ def baixar_arquivo_google_drive(url, destino):
     print(f"Link de download convertido: {download_url}")  # Log de depuração
 
     headers = {
-      "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-      )
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+        )
     }
 
     try:
@@ -63,9 +65,9 @@ def baixar_arquivo_google_drive(url, destino):
         return False
 
     # Determinar o nome do arquivo a partir do cabeçalho de resposta
-    content_disposition = response.headers.get('content-disposition')
+    content_disposition = response.headers.get("content-disposition")
     if content_disposition:
-        filename = content_disposition.split('filename=')[1].strip('"')
+        filename = content_disposition.split("filename=")[1].strip('"')
     else:
         filename = f"{file_id}.zip"
         # Nome padrão caso não seja possível determinar
@@ -74,7 +76,7 @@ def baixar_arquivo_google_drive(url, destino):
     os.makedirs(os.path.dirname(destino), exist_ok=True)
 
     destino = os.path.join(os.path.dirname(destino), filename)
-    with open(destino, 'wb') as f:
+    with open(destino, "wb") as f:
         f.write(response.content)
     print(f"Arquivo baixado com sucesso: {destino}")  # Log de depuração
     return destino
@@ -86,16 +88,16 @@ def extrair_arquivo(arquivo, destino):
     # Log de depuração
     print(f"Iniciando extração do arquivo: {arquivo}")
     try:
-        if arquivo.lower().endswith('.zip'):
-            with zipfile.ZipFile(arquivo, 'r') as zip_ref:
+        if arquivo.lower().endswith(".zip"):
+            with zipfile.ZipFile(arquivo, "r") as zip_ref:
                 zip_ref.extractall(destino)
-        elif arquivo.lower().endswith('.rar'):
-            with rarfile.RarFile(arquivo, 'r') as rar_ref:
+        elif arquivo.lower().endswith(".rar"):
+            with rarfile.RarFile(arquivo, "r") as rar_ref:
                 rar_ref.extractall(destino)
         else:
             print(
-              f"Erro: O arquivo {arquivo} não é um arquivo ZIP ou RAR válido."
-            )
+                f"Erro: O arquivo {arquivo} não é um arquivo ZIP ou RAR válido"
+                )
             return None, None
         # Log de depuração
         print(f"Arquivo {arquivo} extraído para {destino}")
@@ -134,24 +136,24 @@ def converter_imagens_para_base64(html_content, pasta_imagens):
     """Converte todas as imagens encontradas no HTML para base64 e substitui"""
     """o src das imagens por dados base64 no próprio HTML."""
     print("Iniciando conversão de imagens para base64...")  # Log de depuração
-    soup = BeautifulSoup(html_content, 'html.parser')
+    soup = BeautifulSoup(html_content, "html.parser")
 
-    for img_tag in soup.find_all('img'):
-        img_src = img_tag.get('src', '')
+    for img_tag in soup.find_all("img"):
+        img_src = img_tag.get("src", "")
 
-        if img_src.startswith('http'):
+        if img_src.startswith("http"):
             continue  # Ignora imagens externas (URLs)
 
         img_file_name = os.path.basename(img_src)
         img_path = os.path.join(pasta_imagens, img_file_name)
 
         if os.path.exists(img_path):
-            ext = img_file_name.split('.')[-1]
-            with open(img_path, 'rb') as img_file:
-                img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+            ext = img_file_name.split(".")[-1]
+            with open(img_path, "rb") as img_file:
+                img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
                 # Log de depuração
                 print(f"Convertendo imagem {img_file_name} para base64...")
-                img_tag['src'] = f"data:image/{ext};base64,{img_base64}"
+                img_tag["src"] = f"data:image/{ext};base64,{img_base64}"
         else:
             # Log de depuração
             print(f"Imagem não encontrada: {img_file_name}")
@@ -161,14 +163,25 @@ def converter_imagens_para_base64(html_content, pasta_imagens):
 
 
 def processar_cursos(df):
-    cursos = df[[
-        "ANO_ESCOLAR", "SEGMENTO_ESCOLAR", "TITULO",
-        "ORDEM_MODULO", "NOME_MODULO", "ORDEM_CAPITULO",
-        "NOME_CAPITULO", "ORDEM_AULA", "TITULO_AULA",
-        "PALAVRAS_CHAVES", "CODIGOS_BNCC", "NIVEL",
-        "LINK_CONTEUDO", "ESTRATEGIA_APRENDIZAGEM",
-        "TIPO_AULA",
-    ]].drop_duplicates()
+    cursos = df[
+        [
+            "ANO_ESCOLAR",
+            "SEGMENTO_ESCOLAR",
+            "TITULO",
+            "ORDEM_MODULO",
+            "NOME_MODULO",
+            "ORDEM_CAPITULO",
+            "NOME_CAPITULO",
+            "ORDEM_AULA",
+            "TITULO_AULA",
+            "PALAVRAS_CHAVES",
+            "CODIGOS_BNCC",
+            "NIVEL",
+            "LINK_CONTEUDO",
+            "ESTRATEGIA_APRENDIZAGEM",
+            "TIPO_AULA",
+        ]
+    ].drop_duplicates()
 
     cursos["COR"] = COR
     cursos["TIPO_CURSO"] = TIPO_CURSO
@@ -183,42 +196,57 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
     ultimo_fk_curso = None
     ultimo_fk_modulo = None
     ultimo_fk_capitulo = None
+
     with engine.begin() as conn:
+        # Obter o nome do aluno com base no nome da planilha
+        nome_aluno = nome_planilha.split("_")[-1].split(".")[0].strip()
+        fk_aluno_importacao = conn.execute(
+            text("SELECT ID FROM T_ALUNO_IMPORTACAO WHERE NOME=:nome"),
+            {"nome": nome_aluno},
+        ).scalar()
+
+        if not fk_aluno_importacao:
+            print(
+                f"Aluno correspondente ao nome '{nome_aluno}' não encontrado."
+                f"Populando com NULL."
+            )
+            fk_aluno_importacao = None
+        else:
+            print(f"Aluno '{nome_aluno}' encontrado com ID"
+                  f"{fk_aluno_importacao}.")
+
         for idx, row in cursos_df.iterrows():
             print(f"Processando curso: {row['TITULO']}")  # Log de depuração
+
             # Buscar IDs necessários
             print(f"Buscando segmento: {row['SEGMENTO_ESCOLAR']}")
             segmento_id = conn.execute(
-                text(
-                    "SELECT ID FROM T_SEGMENTOS_ESCOLARES WHERE NOME=:nome"
-                ),
-                {"nome": row["SEGMENTO_ESCOLAR"]}
+                text("SELECT ID FROM T_SEGMENTOS_ESCOLARES WHERE NOME=:nome"),
+                {"nome": row["SEGMENTO_ESCOLAR"]},
             ).scalar()
 
             print(
-              f"Buscando ano: {row['ANO_ESCOLAR']} para segmento ID: "
-              f"{segmento_id}"
+                f"Buscando ano: {row['ANO_ESCOLAR']} para segmento ID: "
+                f"{segmento_id}"
             )
             ano_id = conn.execute(
                 text(
                     "SELECT ID FROM T_ANOS_ESCOLARES WHERE NOME=:nome "
                     "AND FK_SEGMENTO_ESCOLAR=:fk_segmento"
                 ),
-                {"nome": row["ANO_ESCOLAR"], "fk_segmento": segmento_id}
+                {"nome": row["ANO_ESCOLAR"], "fk_segmento": segmento_id},
             ).scalar()
 
             print(f"Buscando área BNCC: {row['AREA_BNCC']}")
             area_bncc_id = conn.execute(
-                text(
-                    "SELECT ID FROM T_AREAS_BNCC WHERE CODIGO=:codigo"
-                ),
-                {"codigo": "LP"}
+                text("SELECT ID FROM T_AREAS_BNCC WHERE CODIGO=:codigo"),
+                {"codigo": "LP"},
             ).scalar()
 
             # Adicionar logs de depuração
             print(
-              f"Segmento ID: {segmento_id}, Ano ID: {ano_id}, "
-              f"Área BNCC ID: {area_bncc_id}"
+                f"Segmento ID: {segmento_id}, Ano ID: {ano_id}, "
+                f"Área BNCC ID: {area_bncc_id}"
             )
 
             if not segmento_id or not ano_id or not area_bncc_id:
@@ -228,18 +256,22 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 )
                 continue
 
-            # Verificar se o curso já existe com o mesmo título, segmento e ano
+            # Normalizar o título do curso
+            titulo_normalizado = (
+                row["TITULO"].strip().upper()
+            )  # Remove espaços e converte para maiúsculas
+
             curso_id = conn.execute(
                 text(
-                    "SELECT ID FROM T_CURSOS WHERE TITULO=:titulo "
+                    "SELECT ID FROM T_CURSOS WHERE UPPER(TITULO)=:titulo "
                     "AND FK_SEGMENTO_ESCOLAR=:fk_segmento "
                     "AND FK_ANO_ESCOLAR=:fk_ano"
                 ),
                 {
-                    "titulo": row["TITULO"],
+                    "titulo": titulo_normalizado,
                     "fk_segmento": segmento_id,
-                    "fk_ano": ano_id
-                }
+                    "fk_ano": ano_id,
+                },
             ).scalar()
 
             if curso_id is None:
@@ -255,7 +287,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                         "@novo_id=:novo_id OUTPUT"
                     ),
                     {
-                        "titulo": row["TITULO"],
+                        "titulo": titulo_normalizado,
                         "tipo_curso": TIPO_CURSO,
                         "cor": row["COR"],
                         "segmento_escolar": segmento_id,
@@ -266,42 +298,49 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 )
                 curso_id = result.scalar()
                 acao = "INSERT"
-                print(f"Curso '{row['TITULO']}' inserido com ID {curso_id}")
+                print(f"Curso '{titulo_normalizado}'"
+                      f"inserido com ID {curso_id}")
             else:
                 acao = "SELECT"
-                print(f"Curso '{row['TITULO']}' já existe com ID {curso_id}")
+                print(f"Curso '{titulo_normalizado}'"
+                      f"já existe com ID {curso_id}")
 
-            # Inserir registro na tabela T_LOG_IMPORTACAO se o
-            # FK_CURSO for diferente do último inserido
+            # Inserir registro na tabela T_LOG_IMPORTACAO
             if curso_id != ultimo_fk_curso:
                 conn.execute(
-                  text(
-                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
-                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
-                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
-                    "VALUES (:nome_planilha, :fk_curso, NULL, NULL, NULL, "
-                    ":acao, GETDATE(), NULL, :fk_segmento, :fk_ano)"
-                  ),
-                  {
-                    "nome_planilha": nome_planilha,
-                    "fk_curso": curso_id,
-                    "acao": acao,
-                    "fk_segmento": segmento_id,
-                    "fk_ano": ano_id
-                  }
+                    text(
+                        "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, "
+                        "FK_CURSO, FK_MODULO, FK_CAPITULO, FK_AULA, "
+                        "ACAO, TIMESTAMP, FK_NIVEL, FK_SEGMENTO, "
+                        "FK_ANO, FK_ALUNO_IMPORTACAO) "
+                        "VALUES (:nome_planilha, :fk_curso, NULL, NULL, NULL, "
+                        ":acao, GETDATE(), NULL, :fk_segmento, :fk_ano, "
+                        ":fk_aluno_importacao)"
+                    ),
+                    {
+                        "nome_planilha": nome_planilha,
+                        "fk_curso": curso_id,
+                        "acao": acao,
+                        "fk_segmento": segmento_id,
+                        "fk_ano": ano_id,
+                        "fk_aluno_importacao": fk_aluno_importacao,
+                    },
                 )
                 # Atualizar o último FK_CURSO inserido
                 ultimo_fk_curso = curso_id
 
             # Processar módulos
             modulo_chave = (row["NOME_MODULO"], row["ORDEM_MODULO"])
-            modulo_id = modulos_inseridos.get(modulo_chave) or conn.execute(
-                text(
-                    "SELECT ID FROM T_MODULOS WHERE NOME=:nome "
-                    "AND FK_CURSO=:fk_curso"
-                ),
-                {"nome": row["NOME_MODULO"], "fk_curso": curso_id}
-            ).scalar()
+            modulo_id = (
+                modulos_inseridos.get(modulo_chave)
+                or conn.execute(
+                    text(
+                        "SELECT ID FROM T_MODULOS WHERE NOME=:nome "
+                        "AND FK_CURSO=:fk_curso"
+                    ),
+                    {"nome": row["NOME_MODULO"], "fk_curso": curso_id},
+                ).scalar()
+            )
 
             if not modulo_id:
                 modulo_result = conn.execute(
@@ -322,33 +361,31 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 modulo_id = modulo_result.scalar()
                 acao = "INSERT"
                 # Log de depuração
-                print(
-                  f"Módulo '{row['NOME_MODULO']}' inserido com ID {modulo_id}"
-                )
+                print(f"Módulo '{row['NOME_MODULO']}'"
+                      f"inserido com ID {modulo_id}")
             else:
                 acao = "SELECT"
-                print(
-                  f"Módulo '{row['NOME_MODULO']}' já existe com ID {modulo_id}"
-                )
+                print(f"Módulo '{row['NOME_MODULO']}'"
+                      f"já existe com ID {modulo_id}")
 
             # Inserir registro na tabela T_LOG_IMPORTACAO
             if modulo_id != ultimo_fk_modulo:
                 conn.execute(
-                  text(
-                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
-                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
-                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
-                    "VALUES (:nome_planilha, :fk_curso, :fk_modulo, NULL, "
-                    "NULL, :acao, GETDATE(), NULL, :fk_segmento, :fk_ano)"
-                  ),
-                  {
-                    "nome_planilha": nome_planilha,
-                    "fk_curso": curso_id,
-                    "fk_modulo": modulo_id,
-                    "acao": acao,
-                    "fk_segmento": segmento_id,
-                    "fk_ano": ano_id
-                  }
+                    text(
+                        "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, "
+                        "FK_CURSO, FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, "
+                        "TIMESTAMP, FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                        "VALUES (:nome_planilha, :fk_curso, :fk_modulo, NULL, "
+                        "NULL, :acao, GETDATE(), NULL, :fk_segmento, :fk_ano)"
+                    ),
+                    {
+                        "nome_planilha": nome_planilha,
+                        "fk_curso": curso_id,
+                        "fk_modulo": modulo_id,
+                        "acao": acao,
+                        "fk_segmento": segmento_id,
+                        "fk_ano": ano_id,
+                    },
                 )
                 # Atualizar o último FK_MODULO inserido
                 ultimo_fk_modulo = modulo_id
@@ -357,7 +394,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
 
             # Processar capítulos
             capitulo_chave = (
-              modulo_id, row["NOME_CAPITULO"], row["ORDEM_CAPITULO"])
+                modulo_id, row["NOME_CAPITULO"], row["ORDEM_CAPITULO"])
             capitulo_id = capitulos_inseridos.get(capitulo_chave)
 
             if not capitulo_id:
@@ -380,36 +417,36 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 acao = "INSERT"
                 # Log de depuração
                 print(
-                  f"Capítulo '{row['NOME_CAPITULO']}' inserido com ID "
-                  f"{capitulo_id}"
+                    f"Capítulo '{row['NOME_CAPITULO']}' inserido com ID "
+                    f"{capitulo_id}"
                 )
             else:
                 acao = "SELECT"
                 print(
-                  f"Capítulo '{row['NOME_CAPITULO']}' já existe com ID "
-                  f"{capitulo_id}"
+                    f"Capítulo '{row['NOME_CAPITULO']}' já existe com ID "
+                    f"{capitulo_id}"
                 )
 
             # Inserir registro na tabela T_LOG_IMPORTACAO
             if capitulo_id != ultimo_fk_capitulo:
                 conn.execute(
-                  text(
-                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
-                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
-                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
-                    "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
-                    ":fk_capitulo, NULL, :acao, GETDATE(), NULL, "
-                    ":fk_segmento, :fk_ano)"
-                  ),
-                  {
-                    "nome_planilha": nome_planilha,
-                    "fk_curso": curso_id,
-                    "fk_modulo": modulo_id,
-                    "fk_capitulo": capitulo_id,
-                    "acao": acao,
-                    "fk_segmento": segmento_id,
-                    "fk_ano": ano_id
-                  }
+                    text(
+                        "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, "
+                        "FK_CURSO, FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, "
+                        "TIMESTAMP, FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                        "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
+                        ":fk_capitulo, NULL, :acao, GETDATE(), NULL, "
+                        ":fk_segmento, :fk_ano)"
+                    ),
+                    {
+                        "nome_planilha": nome_planilha,
+                        "fk_curso": curso_id,
+                        "fk_modulo": modulo_id,
+                        "fk_capitulo": capitulo_id,
+                        "acao": acao,
+                        "fk_segmento": segmento_id,
+                        "fk_ano": ano_id,
+                    },
                 )
                 # Atualizar o último FK_CAPITULO inserido
                 ultimo_fk_capitulo = capitulo_id
@@ -425,7 +462,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                     "(REPLACE(REPLACE"
                     "(NOME, 'ã', 'a'), 'é', 'e'), 'ç', 'c')) = :nome"
                 ),
-                {"nome": tipo_aula_nome_normalizado}
+                {"nome": tipo_aula_nome_normalizado},
             ).scalar()
 
             if not tipo_aula_id:
@@ -433,7 +470,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                       f"não encontrado!")
                 continue
 
-            nivel = row['NIVEL']
+            nivel = row["NIVEL"]
             nivel_complexidade_id = None
             if nivel:
                 if isinstance(nivel, str) and nivel.startswith("Nível"):
@@ -444,7 +481,7 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                         "SELECT ID FROM T_NIVEL_COMPLEXIDADE "
                         "WHERE DESCRICAO=:descricao"
                     ),
-                    {"descricao": nivel}
+                    {"descricao": nivel},
                 ).scalar()
 
             if not nivel_complexidade_id and nivel is not None:
@@ -456,19 +493,22 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                     "SELECT ID FROM T_ESTRATEGIA_APRENDIZAGEM WHERE "
                     "UPPER(DESCRICAO) = UPPER(:descricao)"
                 ),
-                {"descricao": row["ESTRATEGIA_APRENDIZAGEM"]}
+                {"descricao": row["ESTRATEGIA_APRENDIZAGEM"]},
             ).scalar()
 
             if not estrategia_id:
                 print(
-                  f"Erro: Estratégia de Aprendizagem '"
-                  f"{row['ESTRATEGIA_APRENDIZAGEM']}' não encontrada!"
-                  )
+                    f"Erro: Estratégia de Aprendizagem '"
+                    f"{row['ESTRATEGIA_APRENDIZAGEM']}' não encontrada!"
+                )
                 continue
 
             # Certifique-se de que 'ORDEM_AULA' seja um inteiro
-            ordem_aula = int(row[
-                "ORDEM_AULA"]) if row["ORDEM_AULA"] is not None else None
+            ordem_aula = (
+                int(
+                        row["ORDEM_AULA"]
+                    ) if row["ORDEM_AULA"] is not None else None
+            )
 
             aula_id = conn.execute(
                 text(
@@ -480,61 +520,64 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                     "titulo": row["TITULO_AULA"],
                     "fk_capitulo": capitulo_id,
                     "ordem": ordem_aula,
-                    "fk_curso": curso_id,       # Novo parâmetro
-                    "fk_modulo": modulo_id      # Novo parâmetro
-                }
+                    "fk_curso": curso_id,  # Novo parâmetro
+                    "fk_modulo": modulo_id,  # Novo parâmetro
+                },
             ).scalar()
 
             conteudo_aula = None
             if not aula_id:
                 # Verificar se há um link para o Google Drive
-                if not pd.isna(row["LINK_CONTEUDO"]) and \
-                  row["LINK_CONTEUDO"].strip():
+                if (
+                    not pd.isna(row["LINK_CONTEUDO"])
+                    and row["LINK_CONTEUDO"].strip()
+                ):
                     temp_dir = os.path.join(DOWNLOAD_PATH, f"aula_{idx}")
                     os.makedirs(temp_dir, exist_ok=True)
                     # Determinar a extensão do arquivo a partir do link
-                    arquivo_extensao = row["LINK_CONTEUDO"].split('.')[-1]
+                    arquivo_extensao = row["LINK_CONTEUDO"].split(".")[-1]
                     arquivo_path = os.path.join(
-                        temp_dir, f"conteudo.{arquivo_extensao}")
+                        temp_dir, f"conteudo.{arquivo_extensao}"
+                    )
                     # Log de depuração
                     print(
-                      f"Baixando conteúdo para a aula "
-                      f"'{row['TITULO_AULA']}'..."
-                      )
+                        f"Baixando conteúdo para a aula "
+                        f"'{row['TITULO_AULA']}'..."
+                    )
                     arquivo_baixado = baixar_arquivo_google_drive(
-                      row["LINK_CONTEUDO"], arquivo_path
+                        row["LINK_CONTEUDO"], arquivo_path
                     )
                     if arquivo_baixado:
                         # Log de depuração
                         print(
-                          f"Extraindo conteúdo para a aula '"
-                          f"{row['TITULO_AULA']}'..."
-                          )
+                            f"Extraindo conteúdo para a aula '"
+                            f"{row['TITULO_AULA']}'..."
+                        )
                         html_file, pasta_imagens = extrair_arquivo(
-                          arquivo_baixado, temp_dir
+                            arquivo_baixado, temp_dir
                         )
 
                         if html_file and pasta_imagens:
                             # Alterado para 'latin-1'
-                            with open(html_file, 'r', encoding='latin-1') as f:
+                            with open(html_file, "r", encoding="latin-1") as f:
                                 conteudo_html = f.read()
                             print(
-                              f"Convertendo imagens para a aula '"
-                              f"{row['TITULO_AULA']}'..."
-                              )  # Log de depuração
+                                f"Convertendo imagens para a aula '"
+                                f"{row['TITULO_AULA']}'..."
+                            )  # Log de depuração
                             conteudo_aula = converter_imagens_para_base64(
-                              conteudo_html, pasta_imagens
+                                conteudo_html, pasta_imagens
                             )
                             print(
-                              f"Conteúdo HTML convertido para a aula '"
-                              f"{row['TITULO_AULA']}': "
-                              f"{conteudo_aula[:500]}..."
-                              )  # Log de depuração
+                                f"Conteúdo HTML convertido para a aula '"
+                                f"{row['TITULO_AULA']}': "
+                                f"{conteudo_aula[:500]}..."
+                            )  # Log de depuração
                         else:
                             print(
-                              f"Erro: Arquivo HTML ou pasta "
-                              f"de imagens não encontrados em {temp_dir}"
-                              )
+                                f"Erro: Arquivo HTML ou pasta "
+                                f"de imagens não encontrados em {temp_dir}"
+                            )
 
                         # Remover o diretório temporário após processamento
                         shutil.rmtree(temp_dir)
@@ -575,55 +618,55 @@ def inserir_cursos(engine, cursos_df, nome_planilha):
                 print(f"Aula '{row['TITULO_AULA']}' inserida com ID {aula_id}")
             else:
                 acao = "SELECT"
-                print(
-                  f"Aula '{row['TITULO_AULA']}' já existe com ID {aula_id}"
-                )
+                print(f"Aula '{row['TITULO_AULA']}'"
+                      f"já existe com ID {aula_id}")
 
             # Inserir registro na tabela T_LOG_IMPORTACAO
             conn.execute(
-              text(
-                "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
-                "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
-                "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
-                "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
-                ":fk_capitulo, :fk_aula, :acao, GETDATE(), :fk_nivel, "
-                "NULL, NULL)"
-              ),
-              {
-                "nome_planilha": nome_planilha,
-                "fk_curso": curso_id,
-                "fk_modulo": modulo_id,
-                "fk_capitulo": capitulo_id,
-                "fk_aula": aula_id,
-                "acao": acao,
-                "fk_nivel": nivel_complexidade_id
-              }
+                text(
+                    "INSERT INTO T_LOG_IMPORTACAO (NOME_PLANILHA, FK_CURSO, "
+                    "FK_MODULO, FK_CAPITULO, FK_AULA, ACAO, TIMESTAMP, "
+                    "FK_NIVEL, FK_SEGMENTO, FK_ANO) "
+                    "VALUES (:nome_planilha, :fk_curso, :fk_modulo, "
+                    ":fk_capitulo, :fk_aula, :acao, GETDATE(), :fk_nivel, "
+                    "NULL, NULL)"
+                ),
+                {
+                    "nome_planilha": nome_planilha,
+                    "fk_curso": curso_id,
+                    "fk_modulo": modulo_id,
+                    "fk_capitulo": capitulo_id,
+                    "fk_aula": aula_id,
+                    "acao": acao,
+                    "fk_nivel": nivel_complexidade_id,
+                },
             )
 
             # Processar códigos BNCC
             codigos_bncc = []
             if row["CODIGOS_BNCC"]:
-                codigos_bncc = row["CODIGOS_BNCC"].split(';')
+                codigos_bncc = row["CODIGOS_BNCC"].split(";")
             bncc_habilidades = (
-              ";".join([codigo.strip() for codigo in codigos_bncc])
-              if codigos_bncc else None
+                ";".join([codigo.strip() for codigo in codigos_bncc])
+                if codigos_bncc
+                else None
             )
 
             try:
                 conn.execute(
-                  text(
-                    "EXEC sp_inserir_bncc_aula "
-                    ":fk_aula, :bncc_habilidades, :linha"
-                  ),
-                  {
-                    "fk_aula": aula_id,
-                    "bncc_habilidades": bncc_habilidades,
-                    "linha": idx + 1
-                  }
+                    text(
+                        "EXEC sp_inserir_bncc_aula "
+                        ":fk_aula, :bncc_habilidades, :linha"
+                    ),
+                    {
+                        "fk_aula": aula_id,
+                        "bncc_habilidades": bncc_habilidades,
+                        "linha": idx + 1,
+                    },
                 )
                 print(
-                  f"Códigos BNCC inseridos para a aula ID {aula_id} "
-                  f"na linha {idx + 1}"
+                    f"Códigos BNCC inseridos para a aula ID {aula_id} "
+                    f"na linha {idx + 1}"
                 )  # Log de depuração
             except Exception as e:
                 print(f"Erro ao inserir códigos BNCC na linha {idx + 1}: {e}")
